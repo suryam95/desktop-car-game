@@ -27,6 +27,8 @@ let state = {
         friction: 0.95,
         rotationSpeed: 0.05
     },
+    tireMarks: [], // {p1s, p1e, p2s, p2e, age}
+    lastCarOut: null,
     keys: {}
 };
 
@@ -136,16 +138,73 @@ function update() {
             }
         }
 
+
         // Screen bounds
         if (state.car.x < 0) state.car.x = 0;
         if (state.car.x > canvas.width) state.car.x = canvas.width;
         if (state.car.y < 0) state.car.y = 0;
         if (state.car.y > canvas.height) state.car.y = canvas.height;
+
+        // Tire Marks Logic
+        // Decay
+        state.tireMarks.forEach(m => m.age++);
+        state.tireMarks = state.tireMarks.filter(m => m.age < 120); // 2 seconds
+
+        if (Math.abs(state.car.speed) > 0.5) { // Only leave marks if moving
+            const rearOffsetX = -14;
+            const rearOffsetY = 14;
+
+            const cos = Math.cos(state.car.angle);
+            const sin = Math.sin(state.car.angle);
+
+            const p1 = {
+                x: state.car.x + (rearOffsetX * cos - rearOffsetY * sin),
+                y: state.car.y + (rearOffsetX * sin + rearOffsetY * cos)
+            };
+            const p2 = {
+                x: state.car.x + (rearOffsetX * cos - (-rearOffsetY) * sin),
+                y: state.car.y + (rearOffsetX * sin + (-rearOffsetY) * cos)
+            };
+
+            if (state.lastCarOut) {
+                state.tireMarks.push({
+                    x1: state.lastCarOut.p1.x, y1: state.lastCarOut.p1.y,
+                    x2: p1.x, y2: p1.y,
+                    x3: state.lastCarOut.p2.x, y3: state.lastCarOut.p2.y,
+                    x4: p2.x, y4: p2.y,
+                    age: 0
+                });
+            }
+            state.lastCarOut = { p1, p2 };
+        } else {
+            state.lastCarOut = null;
+        }
     }
 }
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Tire Marks
+    if (state.isDriving || state.isEditing) {
+        ctx.lineWidth = 2; // Tire width
+        for (let mark of state.tireMarks) {
+            const alpha = 1 - (mark.age / 120);
+            ctx.strokeStyle = `rgba(50, 50, 50, ${alpha * 0.5})`; // Semi-transparent black
+
+            // Left track
+            ctx.beginPath();
+            ctx.moveTo(mark.x1, mark.y1);
+            ctx.lineTo(mark.x2, mark.y2);
+            ctx.stroke();
+
+            // Right track
+            ctx.beginPath();
+            ctx.moveTo(mark.x3, mark.y3);
+            ctx.lineTo(mark.x4, mark.y4);
+            ctx.stroke();
+        }
+    }
 
     // Draw Obstacles (Only in Edit Mode or Debug)
     // User said: "boxes will also overlay all the components (make the boxes invisble to me). i should also be able to toggle boxes on and off."
@@ -167,18 +226,17 @@ function draw() {
     }
 
     // Draw Car
-    // Draw Car
-    if (state.isDriving || state.isEditing) { // Always show car? Or only when driving? User said "toggle car on and off".
+    if (state.isDriving || state.isEditing) {
         ctx.save();
         ctx.translate(state.car.x, state.car.y);
         ctx.rotate(state.car.angle);
 
-        // Draw simple car shape
-        ctx.fillStyle = '#00ffcc';
-        ctx.fillRect(-15, -10, 30, 20); // Body
-        ctx.fillStyle = '#ff0055';
-        ctx.fillRect(10, -10, 5, 20); // Headlights/Front
+        // Calculate steering for animation
+        let steerAngle = 0;
+        if (state.keys['ArrowLeft'] || state.keys['a']) steerAngle = -0.5;
+        if (state.keys['ArrowRight'] || state.keys['d']) steerAngle = 0.5;
 
+        drawCar(ctx, steerAngle);
         ctx.restore();
     }
 }
@@ -190,3 +248,98 @@ function loop() {
 }
 
 loop();
+
+function drawCar(ctx, steerAngle = 0) {
+    // Styling constants
+    const bodyColor = '#FF5A5F'; // Airbnb Rausch
+    const windowColor = '#2F363F';
+    const shadowColor = 'rgba(0, 0, 0, 0.2)';
+    const wheelColor = '#222222';
+
+    // Dimensions
+    const length = 46;
+    const width = 26;
+    const wheelWidth = 10;
+    const wheelHeight = 6;
+    const wheelOffsetX = 14;
+    const wheelOffsetY = 14;
+
+    // Draw Wheels (before body)
+    ctx.fillStyle = wheelColor;
+
+    // Front Left
+    ctx.save();
+    ctx.translate(wheelOffsetX, -wheelOffsetY);
+    ctx.rotate(steerAngle);
+    roundRect(ctx, -wheelWidth / 2, -wheelHeight / 2, wheelWidth, wheelHeight, 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Front Right
+    ctx.save();
+    ctx.translate(wheelOffsetX, wheelOffsetY);
+    ctx.rotate(steerAngle);
+    roundRect(ctx, -wheelWidth / 2, -wheelHeight / 2, wheelWidth, wheelHeight, 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Rear Left
+    ctx.save();
+    ctx.translate(-wheelOffsetX, -wheelOffsetY);
+    roundRect(ctx, -wheelWidth / 2, -wheelHeight / 2, wheelWidth, wheelHeight, 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Rear Right
+    ctx.save();
+    ctx.translate(-wheelOffsetX, wheelOffsetY);
+    roundRect(ctx, -wheelWidth / 2, -wheelHeight / 2, wheelWidth, wheelHeight, 2);
+    ctx.fill();
+    ctx.restore();
+
+
+    // Shadow (offset slightly)
+    ctx.fillStyle = shadowColor;
+    roundRect(ctx, -length / 2 - 2, -width / 2 + 2, length + 4, width + 4, 8);
+    ctx.fill();
+
+    // Body
+    ctx.fillStyle = bodyColor;
+    roundRect(ctx, -length / 2, -width / 2, length, width, 8);
+    ctx.fill();
+
+    // Roof / Cabin (White contrast)
+    ctx.fillStyle = '#FFFFFF';
+    roundRect(ctx, -12, -10, 20, 20, 5);
+    ctx.fill();
+
+    // Windshield (Front)
+    ctx.fillStyle = windowColor;
+    ctx.beginPath();
+    ctx.moveTo(8, -8);
+    ctx.lineTo(8, 8);
+    ctx.lineTo(3, 7);
+    ctx.lineTo(3, -7);
+    ctx.fill();
+
+    // Rear Window
+    ctx.fillStyle = windowColor;
+    ctx.beginPath();
+    ctx.moveTo(-12, -7);
+    ctx.lineTo(-12, 7);
+    ctx.lineTo(-8, 8);
+    ctx.lineTo(-8, -8);
+    ctx.fill();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+    if (w < 2 * r) r = w / 2;
+    if (h < 2 * r) r = h / 2;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+}
