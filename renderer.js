@@ -441,18 +441,18 @@ loop();
 
 function drawCar(ctx, steerAngle = 0) {
     // Styling constants
-    const bodyColor = '#FF5A5F'; // Airbnb Rausch
-    const windowColor = '#2F363F';
+    const bodyColor = '#FF5A5F'; // Airbnb Rausch (Red)
+    const windowColor = '#87CEEB'; // Sky Blue
     const shadowColor = 'rgba(0, 0, 0, 0.2)';
-    const wheelColor = '#DDDDDD'; // Lighter for visibility
+    const wheelColor = '#333333'; // Dark wheels
 
     // Dimensions
     const length = 46;
     const width = 26;
-    const wheelWidth = 10;
+    const wheelWidth = 8; // Narrower
     const wheelHeight = 6;
-    const wheelOffsetX = 14;
-    const wheelOffsetY = 14;
+    const wheelOffsetX = 12; // Tucked in (was 14)
+    const wheelOffsetY = 13; // Pushed out slightly (was 10) to see turning
 
     // Helper to draw detailed wheel
     const drawWheel = (x, y, angle) => {
@@ -491,32 +491,93 @@ function drawCar(ctx, steerAngle = 0) {
     roundRect(ctx, -length / 2 - 2, -width / 2 + 2, length + 4, width + 4, 8);
     ctx.fill();
 
+    // Front Headlights (Soft Glow)
+    // Use a blur filter to make the light look diffuse and satisfying
+    ctx.save();
+    ctx.translate(20, 0); // Move to front of car
+
+    // Apply a heavy blur to soften the light beam into a glow
+    ctx.filter = 'blur(8px)';
+    ctx.globalCompositeOperation = 'screen'; // Additive light effect
+
+    // Create a single wide, soft beam gradient
+    // Linear gradient for fading out as it gets further
+    const beamLen = 80; // Shorter (was 120)
+    const beamWid = 40;
+    const grad = ctx.createLinearGradient(0, 0, beamLen, 0);
+    grad.addColorStop(0, 'rgba(255, 230, 200, 0.4)'); // Warm light source
+    grad.addColorStop(1, 'rgba(255, 230, 200, 0)');   // Fade to nothing
+
+    ctx.fillStyle = grad;
+
+    // Draw Left Beam (Soft Oval-ish path)
+    ctx.beginPath();
+    ctx.moveTo(0, -10);
+    ctx.lineTo(beamLen, -25);
+    ctx.lineTo(beamLen, -5);
+    ctx.lineTo(0, -4);
+    ctx.fill();
+
+    // Reset path for Right Beam
+    ctx.beginPath();
+    ctx.moveTo(0, 10);
+    ctx.lineTo(beamLen, 25);
+    ctx.lineTo(beamLen, 5);
+    ctx.lineTo(0, 4);
+    ctx.fill();
+
+    ctx.restore();
+
     // Body
     ctx.fillStyle = bodyColor;
     roundRect(ctx, -length / 2, -width / 2, length, width, 8);
     ctx.fill();
 
-    // Roof / Cabin (White contrast)
-    ctx.fillStyle = '#FFFFFF';
-    roundRect(ctx, -12, -10, 20, 20, 5);
+    // Headlight Stickers (Yellow Indicators)
+    ctx.fillStyle = '#FFEE88'; // Light Yellow
+    // Left
+    ctx.beginPath();
+    ctx.ellipse(18, -8, 2, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Right
+    ctx.beginPath();
+    ctx.ellipse(18, 8, 2, 4, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Windshield (Front)
+    // Side Mirrors
+    ctx.fillStyle = bodyColor; // Same as body
+    // Left Mirror
+    roundRect(ctx, 4, -width / 2 - 4, 6, 4, 2);
+    ctx.fill();
+    // Right Mirror
+    roundRect(ctx, 4, width / 2, 6, 4, 2);
+    ctx.fill();
+
+    // Roof / Cabin (Darker Red or just structure?)
+    // Reference has consistent body color. Windows are the contrast.
+
+    // Windshield (Front) - Light Blue
     ctx.fillStyle = windowColor;
     ctx.beginPath();
     ctx.moveTo(8, -8);
     ctx.lineTo(8, 8);
-    ctx.lineTo(3, 7);
-    ctx.lineTo(3, -7);
+    ctx.lineTo(-2, 10); // Curved cabin shape
+    ctx.lineTo(-2, -10);
     ctx.fill();
+
+    // Side Windows (Left)
+    ctx.fillStyle = windowColor;
+    ctx.fillRect(-8, -11, 10, 3); // Thin strip
+    // Side Windows (Right)
+    ctx.fillRect(-8, 8, 10, 3); // Thin strip
 
     // Rear Window
     ctx.fillStyle = windowColor;
     ctx.beginPath();
     ctx.moveTo(-12, -7);
     ctx.lineTo(-12, 7);
-    ctx.lineTo(-8, 8);
-    ctx.lineTo(-8, -8);
+    ctx.lineTo(-18, 6);
+    ctx.lineTo(-18, -6);
     ctx.fill();
 }
 
