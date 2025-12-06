@@ -22,12 +22,13 @@ let state = {
         y: 100,
         angle: 0,
         speed: 0,
-        maxSpeed: 10,
-        acceleration: 0.5,
-        friction: 0.95,
-        rotationSpeed: 0.05
+        maxSpeed: 6, // Reduced from 10
+        acceleration: 0.3, // Smoother (was 0.5)
+        friction: 0.96, // Glidier/Heavier feel (was 0.95)
+        rotationSpeed: 0.05,
+        moveAngle: 0 // Direction of movement (may differ from angle during drift)
     },
-    tireMarks: [], // {x1,y1,x2,y2,x3,y3,x4,y4,age}
+    tireMarks: [], // {x1,y1,x2,y2,x3,y3,x4,y4,age,drifting}
     smokeParticles: [], // {x, y, vx, vy, life, maxLife, size}
     lastCarOut: null,
     keys: {}
@@ -47,8 +48,27 @@ let isDragging = false;
 let dragStart = { x: 0, y: 0 };
 let currentDragBox = null;
 
+const CLOSE_BTN_SIZE = 15;
+
 window.addEventListener('mousedown', (e) => {
     if (!state.isEditing) return;
+
+    // Check for click on "X" buttons (iterate backwards for z-order/safety)
+    for (let i = state.obstacles.length - 1; i >= 0; i--) {
+        const obs = state.obstacles[i];
+        const closeX = obs.x + obs.w - CLOSE_BTN_SIZE;
+        const closeY = obs.y;
+
+        if (e.clientX >= closeX && e.clientX <= closeX + CLOSE_BTN_SIZE &&
+            e.clientY >= closeY && e.clientY <= closeY + CLOSE_BTN_SIZE) {
+
+            // Delete obstacle
+            state.obstacles.splice(i, 1);
+            saveObstacles();
+            return; // Prevent drag start
+        }
+    }
+
     isDragging = true;
     dragStart = { x: e.clientX, y: e.clientY };
     currentDragBox = { x: e.clientX, y: e.clientY, w: 0, h: 0 };
@@ -114,28 +134,71 @@ function update() {
             state.car.speed -= state.car.acceleration;
         }
 
+        const isDrifting = state.keys[' '] || state.keys['Spacebar']; // Drift trigger
+
         if (Math.abs(state.car.speed) > 0.1) {
-            if (state.keys['ArrowLeft'] || state.keys['a']) {
-                state.car.angle -= state.car.rotationSpeed * Math.sign(state.car.speed);
-            }
-            if (state.keys['ArrowRight'] || state.keys['d']) {
-                state.car.angle += state.car.rotationSpeed * Math.sign(state.car.speed);
-            }
+            // Steering changes facing direction
+            let turnDir = 0;
+            if (state.keys['ArrowLeft'] || state.keys['a']) turnDir = -1;
+            if (state.keys['ArrowRight'] || state.keys['d']) turnDir = 1;
+
+            state.car.angle += turnDir * state.car.rotationSpeed * Math.sign(state.car.speed);
+        }
+
+        // Drift Physics: moveAngle vs facing angle
+        // If drifting, moveAngle lags behind angle. If not, it snaps to angle.
+        if (isDrifting) {
+            // Drift: slowly interpolate moveAngle towards angle (high inertia)
+            const diff = state.car.angle - state.car.moveAngle;
+            // Normalize angular difference to -PI to PI
+            let d = diff % (2 * Math.PI);
+            if (d < -Math.PI) d += 2 * Math.PI;
+            if (d > Math.PI) d -= 2 * Math.PI;
+
+            state.car.moveAngle += d * 0.05; // Low friction sideways
+        } else {
+            // No Drift: Grip is high, but we regain it smoothly
+            const diff = state.car.angle - state.car.moveAngle;
+            let d = diff % (2 * Math.PI);
+            if (d < -Math.PI) d += 2 * Math.PI;
+            if (d > Math.PI) d -= 2 * Math.PI;
+
+            state.car.moveAngle += d * 0.2; // High friction/grip, smoothly snapping back
         }
 
         state.car.speed *= state.car.friction;
-        state.car.x += Math.cos(state.car.angle) * state.car.speed;
-        state.car.y += Math.sin(state.car.angle) * state.car.speed;
 
-        // Simple Collision with Obstacles
-        // TODO: Better collision response (bounce)
+        // Store previous position for collision response
+        const prevX = state.car.x;
+        const prevY = state.car.y;
+
+        state.car.x += Math.cos(state.car.moveAngle) * state.car.speed;
+        state.car.y += Math.sin(state.car.moveAngle) * state.car.speed;
+
+        // Hard Collision with Obstacles
         for (let obs of state.obstacles) {
-            if (state.car.x > obs.x && state.car.x < obs.x + obs.w &&
-                state.car.y > obs.y && state.car.y < obs.y + obs.h) {
-                // Hit! Stop for now
-                state.car.speed *= -0.5; // Bounce back
-                state.car.x -= Math.cos(state.car.angle) * state.car.speed * 2; // Move out
-                state.car.y -= Math.sin(state.car.angle) * state.car.speed * 2;
+            // Check bounding box overlap
+            // Car is 46x26 roughly. Let's use a simple box for car (x-23, y-13, w46, h26)
+            // Actually, keep it simple point/small box check or just current pos
+            // Better: Check if center is inside? Or better, circle vs box.
+            // Let's use a slightly smaller hitbox for the car to forgive grazing
+            const carHbSz = 20;
+            if (state.car.x + carHbSz / 2 > obs.x && state.car.x - carHbSz / 2 < obs.x + obs.w &&
+                state.car.y + carHbSz / 2 > obs.y && state.car.y - carHbSz / 2 < obs.y + obs.h) {
+
+                // Hard Hit: Stop and Revert
+                state.car.x = prevX;
+                state.car.y = state.car.y - Math.sin(state.car.moveAngle) * state.car.speed; // Revert Y only? NO, revert both
+                // Correct logic:
+                // We don't know which axis hit without complex checks.
+                // Simple Hard Stop: Revert to prev pos and kill speed.
+
+                // Oops, I can't access prevY easily if I didn't save it well above.
+                // Let's just step back.
+                state.car.x -= Math.cos(state.car.moveAngle) * state.car.speed;
+                state.car.y -= Math.sin(state.car.moveAngle) * state.car.speed;
+
+                state.car.speed = 0;
             }
         }
 
@@ -164,23 +227,36 @@ function update() {
         if (Math.abs(state.car.speed) > 0.5) { // Only leave marks if moving
             const rearOffsetX = -14;
             const rearOffsetY = 14;
-
             const cos = Math.cos(state.car.angle);
             const sin = Math.sin(state.car.angle);
 
-            // Add Smoke
-            if (Math.random() < 0.3) { // 30% chance per frame
-                // Emit from back center
-                const exhaustX = state.car.x - 20 * cos;
-                const exhaustY = state.car.y - 20 * sin;
-                state.smokeParticles.push({
-                    x: exhaustX + (Math.random() - 0.5) * 5,
-                    y: exhaustY + (Math.random() - 0.5) * 5,
-                    vx: -cos * 2 + (Math.random() - 0.5), // Move opposite to car
-                    vy: -sin * 2 + (Math.random() - 0.5),
-                    life: 0,
-                    maxLife: 40 + Math.random() * 20,
-                    size: 2 + Math.random() * 3
+            // Add Smoke (Only when Drifting)
+            // Drift intensity = difference between facing angle and move angle
+            const moveDiff = Math.abs(Math.sin(state.car.angle - state.car.moveAngle));
+            const isDriftingActive = moveDiff > 0.2; // Threshold for smoke
+
+            // Add Smoke (Only when Drifting)
+            if (isDriftingActive && Math.random() < 0.3) { // Lower density (was 0.8)
+                // Emit from REAR TIRES ONLY for cleaner look
+                const offsets = [
+                    { x: -14, y: -14 }, // RL
+                    { x: -14, y: 14 }   // RR
+                ];
+
+                offsets.forEach(offset => {
+                    const tireX = state.car.x + (offset.x * cos - offset.y * sin);
+                    const tireY = state.car.y + (offset.x * sin + offset.y * cos);
+
+                    // Push smoke away from movement direction (friction smoke)
+                    state.smokeParticles.push({
+                        x: tireX + (Math.random() - 0.5) * 4,
+                        y: tireY + (Math.random() - 0.5) * 4,
+                        vx: -Math.cos(state.car.moveAngle) * 1.5 + (Math.random() - 0.5),
+                        vy: -Math.sin(state.car.moveAngle) * 1.5 + (Math.random() - 0.5),
+                        life: 0,
+                        maxLife: 20 + Math.random() * 10,
+                        size: 3 + Math.random() * 4
+                    });
                 });
             }
 
@@ -199,7 +275,8 @@ function update() {
                     x2: p1.x, y2: p1.y,
                     x3: state.lastCarOut.p2.x, y3: state.lastCarOut.p2.y,
                     x4: p2.x, y4: p2.y,
-                    age: 0
+                    age: 0,
+                    drifting: isDriftingActive // Flag to render as solid
                 });
             }
             state.lastCarOut = { p1, p2 };
@@ -214,12 +291,21 @@ function draw() {
 
     // Draw Tire Marks
     if (state.isDriving || state.isEditing) {
-        ctx.lineWidth = 4; // Wider tires
-        ctx.setLineDash([4, 4]); // Tread pattern
+        ctx.lineWidth = 10;
+
+        // Split marks into batches by style? Or just state change per line (slower but correct)
+        // Since we have minimal marks, state change is fine.
 
         for (let mark of state.tireMarks) {
             const alpha = 1 - (mark.age / 60);
-            ctx.strokeStyle = `rgba(30, 30, 30, ${alpha * 0.4})`; // Darker, patterned
+            ctx.strokeStyle = `rgba(10, 10, 10, ${alpha * 0.5})`;
+
+            // Style: Drifting = Solid, Normal = Dashed
+            if (mark.drifting) {
+                ctx.setLineDash([]);
+            } else {
+                ctx.setLineDash([2, 4]);
+            }
 
             // Left track
             ctx.beginPath();
@@ -240,7 +326,7 @@ function draw() {
     if (state.isDriving || state.isEditing) {
         state.smokeParticles.forEach(p => {
             const alpha = 1 - (p.life / p.maxLife);
-            ctx.fillStyle = `rgba(200, 200, 200, ${alpha * 0.6})`;
+            ctx.fillStyle = `rgba(220, 220, 220, ${alpha * 0.3})`; // Very subtle/ghostly (was 0.6)
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             ctx.fill();
@@ -256,8 +342,29 @@ function draw() {
         ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
 
         for (let obs of state.obstacles) {
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+            ctx.lineWidth = 2;
+
             ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
             ctx.strokeRect(obs.x, obs.y, obs.w, obs.h);
+
+            // Draw Delete Button ("X")
+            const btnSize = 15;
+            const btnX = obs.x + obs.w - btnSize;
+            const btnY = obs.y;
+
+            ctx.fillStyle = 'red';
+            ctx.fillRect(btnX, btnY, btnSize, btnSize);
+
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(btnX + 3, btnY + 3);
+            ctx.lineTo(btnX + btnSize - 3, btnY + btnSize - 3);
+            ctx.moveTo(btnX + btnSize - 3, btnY + 3);
+            ctx.lineTo(btnX + 3, btnY + btnSize - 3);
+            ctx.stroke();
         }
 
         if (currentDragBox) {
