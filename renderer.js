@@ -26,10 +26,11 @@ let state = {
         acceleration: 0.3, // Smoother (was 0.5)
         friction: 0.96, // Glidier/Heavier feel (was 0.95)
         rotationSpeed: 0.05,
-        moveAngle: 0 // Direction of movement (may differ from angle during drift)
+        moveAngle: 0, // Direction of movement (may differ from angle during drift)
+        driftDuration: 0 // How long we've been drifting
     },
     tireMarks: [], // {x1,y1,x2,y2,x3,y3,x4,y4,age,drifting}
-    smokeParticles: [], // {x, y, vx, vy, life, maxLife, size}
+    smokeParticles: [], // {x, y, vx, vy, life, maxLife, size, color}
     lastCarOut: null,
     keys: {}
 };
@@ -236,7 +237,13 @@ function update() {
             const isDriftingActive = moveDiff > 0.2; // Threshold for smoke
 
             // Add Smoke (Only when Drifting)
-            if (isDriftingActive && Math.random() < 0.3) { // Lower density (was 0.8)
+            if (isDriftingActive) {
+                state.car.driftDuration++;
+            } else {
+                state.car.driftDuration = 0;
+            }
+
+            if (isDriftingActive && Math.random() < 0.3) {
                 // Emit from REAR TIRES ONLY for cleaner look
                 const offsets = [
                     { x: -14, y: -14 }, // RL
@@ -247,16 +254,39 @@ function update() {
                     const tireX = state.car.x + (offset.x * cos - offset.y * sin);
                     const tireY = state.car.y + (offset.x * sin + offset.y * cos);
 
-                    // Push smoke away from movement direction (friction smoke)
-                    state.smokeParticles.push({
-                        x: tireX + (Math.random() - 0.5) * 4,
-                        y: tireY + (Math.random() - 0.5) * 4,
-                        vx: -Math.cos(state.car.moveAngle) * 1.5 + (Math.random() - 0.5),
-                        vy: -Math.sin(state.car.moveAngle) * 1.5 + (Math.random() - 0.5),
-                        life: 0,
-                        maxLife: 20 + Math.random() * 10,
-                        size: 3 + Math.random() * 4
-                    });
+                    // Determine particle type (Smoke vs Spark)
+                    // "Come a little sooner" -> > 30 frames
+                    // "Actual fire sparks" -> Yellows/Oranges/White
+                    let isSpark = state.car.driftDuration > 30 && Math.random() < 0.6;
+
+                    if (isSpark) {
+                        // SPARK
+                        const sparkColors = ['#FFD700', '#FFA500', '#FF4500', '#FFFFFF']; // Gold, Orange, Red-Orange, White
+                        const color = sparkColors[Math.floor(Math.random() * sparkColors.length)];
+
+                        state.smokeParticles.push({
+                            x: tireX + (Math.random() - 0.5) * 4,
+                            y: tireY + (Math.random() - 0.5) * 4,
+                            vx: -Math.cos(state.car.moveAngle) * 4 + (Math.random() - 0.5) * 3, // Faster and more scattered
+                            vy: -Math.sin(state.car.moveAngle) * 4 + (Math.random() - 0.5) * 3,
+                            life: 0,
+                            maxLife: 5 + Math.random() * 8, // Very short life (looks like popping sparks)
+                            size: 1 + Math.random(), // Tiny dots
+                            color: color
+                        });
+                    } else {
+                        // SMOKE
+                        state.smokeParticles.push({
+                            x: tireX + (Math.random() - 0.5) * 4,
+                            y: tireY + (Math.random() - 0.5) * 4,
+                            vx: -Math.cos(state.car.moveAngle) * 1.5 + (Math.random() - 0.5),
+                            vy: -Math.sin(state.car.moveAngle) * 1.5 + (Math.random() - 0.5),
+                            life: 0,
+                            maxLife: 20 + Math.random() * 10,
+                            size: 3 + Math.random() * 4,
+                            color: null // Default smoke
+                        });
+                    }
                 });
             }
 
@@ -326,10 +356,22 @@ function draw() {
     if (state.isDriving || state.isEditing) {
         state.smokeParticles.forEach(p => {
             const alpha = 1 - (p.life / p.maxLife);
-            ctx.fillStyle = `rgba(220, 220, 220, ${alpha * 0.3})`; // Very subtle/ghostly (was 0.6)
+            if (p.color) {
+                // Spark
+                ctx.fillStyle = p.color; // Solid color for spark? Or rgba? 
+                // Let's modify alpha a bit. Sparks fade fast.
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = p.color;
+            } else {
+                // Smoke
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = `rgba(220, 220, 220, ${alpha * 0.3})`;
+            }
+
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             ctx.fill();
+            ctx.globalAlpha = 1; // Reset
         });
     }
 
