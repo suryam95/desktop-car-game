@@ -55,6 +55,7 @@ Once you've created your track, it's time to drive!
 **Steering:**
 - `←` (Left Arrow) or `A` - Turn left
 - `→` (Right Arrow) or `D` - Turn right
+- `Spacebar` - **Drift** (Hold while turning to slide!)
 
 **Physics:**
 - The car has realistic momentum and friction
@@ -67,8 +68,9 @@ Once you've created your track, it's time to drive!
 ## 🎨 Visual Features
 
 ### The Car
-- **Cyan body** with **pink headlights**
-- Rotates smoothly based on steering
+- **Modern Airbnb-Style Design**
+- **Steerable Wheels**: Front wheels rotate when turning.
+- **Dynamic Effects**: Smoke and tire tracks appear based on driving style.
 - Visible in both Edit and Driving modes
 
 ### Obstacles
@@ -131,6 +133,7 @@ This means your custom tracks persist between game sessions!
 | `↓` or `S` | Reverse/Brake |
 | `←` or `A` | Turn Left |
 | `→` or `D` | Turn Right |
+| `Spacebar` | **Drift** |
 
 ---
 
@@ -146,4 +149,14 @@ This means your custom tracks persist between game sessions!
 
 ---
 
-Enjoy your desktop racing experience! 🏁
+Enjoy your desktop drifting experience! 🏁
+
+## ✨ New Updates
+*   **Airbnb-Style Redesign**: A fresh, modern, top-down car icon.
+*   **Drift Mechanics**: Hold `Spacebar` to drift around corners!
+*   **Dynamic Smoke & Tire Marks**:
+    *   Solid skid marks when drifting.
+    *   Subtle tire smoke from rear wheels.
+*   **Obstacle Deletion**: Delete obstacles easily with the red "X" button in Edit Mode.
+*   **Hard Collisions**: Hitting a wall now stops the car instantly.
+*   **Polished Physics**: Smoother, more relaxing driving feel.
