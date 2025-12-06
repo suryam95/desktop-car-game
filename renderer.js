@@ -27,7 +27,8 @@ let state = {
         friction: 0.95,
         rotationSpeed: 0.05
     },
-    tireMarks: [], // {p1s, p1e, p2s, p2e, age}
+    tireMarks: [], // {x1,y1,x2,y2,x3,y3,x4,y4,age}
+    smokeParticles: [], // {x, y, vx, vy, life, maxLife, size}
     lastCarOut: null,
     keys: {}
 };
@@ -146,9 +147,19 @@ function update() {
         if (state.car.y > canvas.height) state.car.y = canvas.height;
 
         // Tire Marks Logic
-        // Decay
+        // Decay - Faster fade (shorter trail)
         state.tireMarks.forEach(m => m.age++);
-        state.tireMarks = state.tireMarks.filter(m => m.age < 120); // 2 seconds
+        state.tireMarks = state.tireMarks.filter(m => m.age < 60); // 1 second (was 2s)
+
+        // Smoke Logic
+        // Update particles
+        state.smokeParticles.forEach(p => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life++;
+            p.size += 0.1; // Expand
+        });
+        state.smokeParticles = state.smokeParticles.filter(p => p.life < p.maxLife);
 
         if (Math.abs(state.car.speed) > 0.5) { // Only leave marks if moving
             const rearOffsetX = -14;
@@ -156,6 +167,22 @@ function update() {
 
             const cos = Math.cos(state.car.angle);
             const sin = Math.sin(state.car.angle);
+
+            // Add Smoke
+            if (Math.random() < 0.3) { // 30% chance per frame
+                // Emit from back center
+                const exhaustX = state.car.x - 20 * cos;
+                const exhaustY = state.car.y - 20 * sin;
+                state.smokeParticles.push({
+                    x: exhaustX + (Math.random() - 0.5) * 5,
+                    y: exhaustY + (Math.random() - 0.5) * 5,
+                    vx: -cos * 2 + (Math.random() - 0.5), // Move opposite to car
+                    vy: -sin * 2 + (Math.random() - 0.5),
+                    life: 0,
+                    maxLife: 40 + Math.random() * 20,
+                    size: 2 + Math.random() * 3
+                });
+            }
 
             const p1 = {
                 x: state.car.x + (rearOffsetX * cos - rearOffsetY * sin),
@@ -187,10 +214,12 @@ function draw() {
 
     // Draw Tire Marks
     if (state.isDriving || state.isEditing) {
-        ctx.lineWidth = 2; // Tire width
+        ctx.lineWidth = 4; // Wider tires
+        ctx.setLineDash([4, 4]); // Tread pattern
+
         for (let mark of state.tireMarks) {
-            const alpha = 1 - (mark.age / 120);
-            ctx.strokeStyle = `rgba(50, 50, 50, ${alpha * 0.5})`; // Semi-transparent black
+            const alpha = 1 - (mark.age / 60);
+            ctx.strokeStyle = `rgba(30, 30, 30, ${alpha * 0.4})`; // Darker, patterned
 
             // Left track
             ctx.beginPath();
@@ -204,6 +233,18 @@ function draw() {
             ctx.lineTo(mark.x4, mark.y4);
             ctx.stroke();
         }
+        ctx.setLineDash([]); // Reset
+    }
+
+    // Draw Smoke
+    if (state.isDriving || state.isEditing) {
+        state.smokeParticles.forEach(p => {
+            const alpha = 1 - (p.life / p.maxLife);
+            ctx.fillStyle = `rgba(200, 200, 200, ${alpha * 0.6})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
     }
 
     // Draw Obstacles (Only in Edit Mode or Debug)
@@ -254,7 +295,7 @@ function drawCar(ctx, steerAngle = 0) {
     const bodyColor = '#FF5A5F'; // Airbnb Rausch
     const windowColor = '#2F363F';
     const shadowColor = 'rgba(0, 0, 0, 0.2)';
-    const wheelColor = '#222222';
+    const wheelColor = '#DDDDDD'; // Lighter for visibility
 
     // Dimensions
     const length = 46;
@@ -264,38 +305,36 @@ function drawCar(ctx, steerAngle = 0) {
     const wheelOffsetX = 14;
     const wheelOffsetY = 14;
 
-    // Draw Wheels (before body)
-    ctx.fillStyle = wheelColor;
+    // Helper to draw detailed wheel
+    const drawWheel = (x, y, angle) => {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+
+        // Tire
+        ctx.fillStyle = wheelColor;
+        roundRect(ctx, -wheelWidth / 2, -wheelHeight / 2, wheelWidth, wheelHeight, 2);
+        ctx.fill();
+
+        // Rim/stripe for rotation visibility
+        ctx.fillStyle = '#333333';
+        ctx.fillRect(-2, -wheelHeight / 2, 4, wheelHeight);
+
+        ctx.restore();
+    };
 
     // Front Left
-    ctx.save();
-    ctx.translate(wheelOffsetX, -wheelOffsetY);
-    ctx.rotate(steerAngle);
-    roundRect(ctx, -wheelWidth / 2, -wheelHeight / 2, wheelWidth, wheelHeight, 2);
-    ctx.fill();
-    ctx.restore();
-
+    drawWheel(wheelOffsetX, -wheelOffsetY, steerAngle);
     // Front Right
-    ctx.save();
-    ctx.translate(wheelOffsetX, wheelOffsetY);
-    ctx.rotate(steerAngle);
-    roundRect(ctx, -wheelWidth / 2, -wheelHeight / 2, wheelWidth, wheelHeight, 2);
-    ctx.fill();
-    ctx.restore();
-
+    drawWheel(wheelOffsetX, wheelOffsetY, steerAngle);
     // Rear Left
-    ctx.save();
-    ctx.translate(-wheelOffsetX, -wheelOffsetY);
-    roundRect(ctx, -wheelWidth / 2, -wheelHeight / 2, wheelWidth, wheelHeight, 2);
-    ctx.fill();
-    ctx.restore();
-
+    drawWheel(-wheelOffsetX, -wheelOffsetY, 0);
     // Rear Right
-    ctx.save();
-    ctx.translate(-wheelOffsetX, wheelOffsetY);
-    roundRect(ctx, -wheelWidth / 2, -wheelHeight / 2, wheelWidth, wheelHeight, 2);
-    ctx.fill();
-    ctx.restore();
+    drawWheel(-wheelOffsetX, wheelOffsetY, 0);
+
+    // Exhaust Pipe
+    ctx.fillStyle = '#555555';
+    ctx.fillRect(-length / 2 - 4, -3, 6, 6);
 
 
     // Shadow (offset slightly)
