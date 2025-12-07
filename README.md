@@ -32,11 +32,7 @@ In Edit Mode, you can create custom obstacles for your car to navigate around:
 - Obstacles appear as **red semi-transparent boxes**
 - Release the mouse to place the obstacle
 - All obstacles are automatically saved
-
-**Tips:**
-- Draw boxes around your open windows to create a realistic track
-- Create challenging mazes and courses
-- Obstacles must be at least 5x5 pixels to be saved
+- **Delete Obstacles**: Click the red "X" to remove an obstacle.
 
 ---
 
@@ -57,26 +53,36 @@ Once you've created your track, it's time to drive!
 - `→` (Right Arrow) or `D` - Turn right
 - `Spacebar` - **Drift** (Hold while turning to slide!)
 
-**Physics:**
-- The car has realistic momentum and friction
-- You can only steer when the car is moving
-- Steering direction reverses when driving in reverse
-- The car will bounce back when hitting obstacles
+**Garage & Switching:**
+- `G` - **Switch Car** (When parked in a garage spot or near another car)
+
+---
+
+## 🚗 The Garage
+
+The game now features a **Parking Lot Garage** in the top-left corner of the screen!
+
+### Available Cars
+1. **Red Racer** (Default): Balanced stats. Good for cruising.
+2. **Drift King** (Purple): Extreme drift radius, slippery tires, purple smoke.
+3. **The Tank** (Blue/Grey): Heavy, slow acceleration, wide tires. Pushes through.
+4. **Neon Speedster** (Green): High speed, grippy handling, neon green trails.
+
+### How to Switch Cars
+1. Drive your current car to the **Parking Lot** (top-left).
+2. Park in an empty spot or near a parked car.
+3. Press **`G`** to swap control to the nearest parked car.
 
 ---
 
 ## 🎨 Visual Features
 
-### The Car
-- **Modern Airbnb-Style Design**
-- **Steerable Wheels**: Front wheels rotate when turning.
-- **Dynamic Effects**: Smoke and tire tracks appear based on driving style.
-- Visible in both Edit and Driving modes
-
-### Obstacles
-- **Visible** in Edit Mode (red semi-transparent boxes)
-- **Invisible** in Driving Mode (but still solid!)
-- Persist between sessions
+- **Modular Car System**: 4 distinct vehicle types with unique physics and visuals.
+- **Dynamic Effects**: 
+    - **Drift Sparks**: Colorful sparks when drifting hard (Purple for Drift King, Green for Speedster).
+    - **Tire Marks**: Width and color match the vehicle type.
+    - **Headlights**: Soft, realistic glow.
+- **Obstacles**: Visible in Edit Mode, invisible in Driving Mode.
 
 ---
 
@@ -90,36 +96,14 @@ Click the car icon in your menu bar to access:
 
 ---
 
-## 💡 Tips & Tricks
-
-1. **Create a Desktop Racetrack:** Arrange your windows, then use Edit Mode to trace around them
-2. **Challenge Yourself:** Create narrow corridors and tight turns
-3. **Practice Drifting:** Use the momentum physics to slide around corners
-4. **Screen Boundaries:** The car can't leave the screen edges
-5. **Mutually Exclusive Modes:** You can't drive and edit at the same time
-
----
-
-## 🗂️ Data Storage
-
-Your obstacles are automatically saved to:
-```
-~/Library/Application Support/antigravity/obstacles.json
-```
-
-This means your custom tracks persist between game sessions!
-
----
-
 ## 🚀 Quick Start Guide
 
 1. Launch the game: `npm start`
 2. Press `Cmd + Shift + E` to enter Edit Mode
-3. Draw some obstacles by clicking and dragging
-4. Press `Cmd + Shift + E` again to exit Edit Mode
-5. Press `Cmd + Shift + D` to start driving
-6. Use arrow keys or WASD to drive around!
-7. Have fun! 🎉
+3. Draw some obstacles around your windows.
+4. Press `Cmd + Shift + D` to start driving.
+5. **Try the New Cars**: Drive to the top-left corner and press 'G' near the purple or green car!
+6. Have fun! 🎉
 
 ---
 
@@ -129,34 +113,22 @@ This means your custom tracks persist between game sessions!
 |----------|--------|
 | `Cmd + Shift + D` | Toggle Driving Mode |
 | `Cmd + Shift + E` | Toggle Edit Mode |
-| `↑` or `W` | Accelerate |
-| `↓` or `S` | Reverse/Brake |
-| `←` or `A` | Turn Left |
-| `→` or `D` | Turn Right |
-| `Spacebar` | **Drift** |
+| `space` | Drift |
+| `G` | Switch Car (in Garage) |
+| `W / A / S / D` | Drive |
 
 ---
 
 ## 🎪 Features
 
 - ✨ Transparent overlay - drive on top of your desktop!
+- 🚗 **4 Unique Vehicle Classes** (Racer, Drifter, Tank, Speedster)
+- 🅿️ **Functional Garage System**
 - 🎮 Realistic car physics with momentum and friction
 - 🏗️ Custom obstacle creation and editing
 - 💾 Automatic save/load of obstacles
-- 🖱️ Click-through when not in use
-- 🎯 Always-on-top overlay
-- ⌨️ Global keyboard shortcuts
+- 🎯 Global keyboard shortcuts
 
 ---
 
 Enjoy your desktop drifting experience! 🏁
-
-## ✨ New Updates
-*   **Airbnb-Style Redesign**: A fresh, modern, top-down car icon.
-*   **Drift Mechanics**: Hold `Spacebar` to drift around corners!
-*   **Dynamic Smoke & Tire Marks**:
-    *   Solid skid marks when drifting.
-    *   Subtle tire smoke from rear wheels.
-*   **Obstacle Deletion**: Delete obstacles easily with the red "X" button in Edit Mode.
-*   **Hard Collisions**: Hitting a wall now stops the car instantly.
-*   **Polished Physics**: Smoother, more relaxing driving feel.
