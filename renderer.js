@@ -170,45 +170,52 @@ function update() {
         state.car.speed *= state.car.friction;
 
         // Store previous position for collision response
-        const prevX = state.car.x;
-        const prevY = state.car.y;
+        const vx = Math.cos(state.car.moveAngle) * state.car.speed;
+        const vy = Math.sin(state.car.moveAngle) * state.car.speed;
 
-        state.car.x += Math.cos(state.car.moveAngle) * state.car.speed;
-        state.car.y += Math.sin(state.car.moveAngle) * state.car.speed;
-
-        // Hard Collision with Obstacles
+        // Move X
+        state.car.x += vx;
+        // Collision X
+        const carHbSz = 20;
+        let hitX = false;
         for (let obs of state.obstacles) {
-            // Check bounding box overlap
-            // Car is 46x26 roughly. Let's use a simple box for car (x-23, y-13, w46, h26)
-            // Actually, keep it simple point/small box check or just current pos
-            // Better: Check if center is inside? Or better, circle vs box.
-            // Let's use a slightly smaller hitbox for the car to forgive grazing
-            const carHbSz = 20;
             if (state.car.x + carHbSz / 2 > obs.x && state.car.x - carHbSz / 2 < obs.x + obs.w &&
                 state.car.y + carHbSz / 2 > obs.y && state.car.y - carHbSz / 2 < obs.y + obs.h) {
+                hitX = true;
+                break;
+            }
+        }
+        if (hitX) {
+            state.car.x -= vx; // Revert X
+            if (Math.abs(state.car.speed) > 2) {
+                createCollisionSparks(state.car.x + (vx > 0 ? carHbSz / 2 : -carHbSz / 2), state.car.y, vx > 0 ? -1 : 0);
+            }
+        }
 
-                // Hard Hit: Stop and Revert
-                state.car.x = prevX;
-                state.car.y = state.car.y - Math.sin(state.car.moveAngle) * state.car.speed; // Revert Y only? NO, revert both
-                // Correct logic:
-                // We don't know which axis hit without complex checks.
-                // Simple Hard Stop: Revert to prev pos and kill speed.
-
-                // Oops, I can't access prevY easily if I didn't save it well above.
-                // Let's just step back.
-                state.car.x -= Math.cos(state.car.moveAngle) * state.car.speed;
-                state.car.y -= Math.sin(state.car.moveAngle) * state.car.speed;
-
-                state.car.speed = 0;
+        // Move Y
+        state.car.y += vy;
+        // Collision Y
+        let hitY = false;
+        for (let obs of state.obstacles) {
+            if (state.car.x + carHbSz / 2 > obs.x && state.car.x - carHbSz / 2 < obs.x + obs.w &&
+                state.car.y + carHbSz / 2 > obs.y && state.car.y - carHbSz / 2 < obs.y + obs.h) {
+                hitY = true;
+                break;
+            }
+        }
+        if (hitY) {
+            state.car.y -= vy; // Revert Y
+            if (Math.abs(state.car.speed) > 2) {
+                createCollisionSparks(state.car.x, state.car.y + (vy > 0 ? carHbSz / 2 : -carHbSz / 2), vy > 0 ? -1.5 : 1.5); // approximate angle
             }
         }
 
 
         // Screen bounds
-        if (state.car.x < 0) state.car.x = 0;
-        if (state.car.x > canvas.width) state.car.x = canvas.width;
-        if (state.car.y < 0) state.car.y = 0;
-        if (state.car.y > canvas.height) state.car.y = canvas.height;
+        if (state.car.x < 0) { state.car.x = 0; if (Math.abs(state.car.speed) > 2) createCollisionSparks(0, state.car.y, 0); }
+        if (state.car.x > canvas.width) { state.car.x = canvas.width; if (Math.abs(state.car.speed) > 2) createCollisionSparks(canvas.width, state.car.y, Math.PI); }
+        if (state.car.y < 0) { state.car.y = 0; if (Math.abs(state.car.speed) > 2) createCollisionSparks(state.car.x, 0, Math.PI / 2); }
+        if (state.car.y > canvas.height) { state.car.y = canvas.height; if (Math.abs(state.car.speed) > 2) createCollisionSparks(state.car.x, canvas.height, -Math.PI / 2); }
 
         // Tire Marks Logic
         // Decay - Faster fade (shorter trail)
@@ -591,4 +598,26 @@ function roundRect(ctx, x, y, w, h, r) {
     ctx.arcTo(x, y + h, x, y, r);
     ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
+}
+
+function createCollisionSparks(x, y, baseAngle) {
+    const count = 3; // Reduced from 10
+    for (let i = 0; i < count; i++) {
+        const speed = 1 + Math.random() * 2; // Slower
+        const angle = baseAngle + (Math.random() - 0.5) * 1.5;
+        // Subtle colors: White, Soft Yellow. No aggressive Red/Orange.
+        const colors = ['#FFFFFF', '#FFFACD'];
+        const color = colors[Math.floor(Math.random() * colors.length)];
+
+        state.smokeParticles.push({
+            x: x,
+            y: y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 0,
+            maxLife: 5 + Math.random() * 5, // Short life
+            size: 1 + Math.random(), // Tiny
+            color: color
+        });
+    }
 }
