@@ -115,40 +115,119 @@ class Plane extends Vehicle {
 
         const color = isShadow ? 'rgba(0,0,0,0.2)' : this.bodyColor;
         const wingColor = isShadow ? 'rgba(0,0,0,0.2)' : this.wingColor;
-        const detailColor = isShadow ? 'rgba(0,0,0,0)' : '#AAAAAA';
 
-        // Wings
-        ctx.fillStyle = wingColor;
-        // Main wing
-        this.roundRect(ctx, -10, -22, 20, 44, 2);
-        ctx.fill();
-
-        // Tail wing
-        this.roundRect(ctx, -20, -12, 12, 24, 2);
-        ctx.fill();
-
-        // Fuselage
-        ctx.fillStyle = color;
-        this.roundRect(ctx, -25, -6, 40, 12, 4); // Long body
-        ctx.fill();
-
-        // Cockpit window
+        // Navigation lights (Red Left, Green Right) - Only if not shadow
         if (!isShadow) {
+            ctx.save();
+            ctx.filter = 'blur(4px)';
+            ctx.globalCompositeOperation = 'screen';
+            // Left Wingtip Light (Red)
+            ctx.fillStyle = 'rgba(255, 50, 50, 0.3)';
+            ctx.beginPath(); ctx.arc(-4, -26, 6, 0, Math.PI * 2); ctx.fill();
+            // Right Wingtip Light (Green)
+            ctx.fillStyle = 'rgba(50, 255, 50, 0.3)';
+            ctx.beginPath(); ctx.arc(-4, 26, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        }
+
+        // 1. Wings (Tapered and swept back)
+        ctx.fillStyle = wingColor;
+
+        ctx.beginPath();
+        // Left Wing
+        ctx.moveTo(2, 0);
+        ctx.lineTo(-2, -26);
+        ctx.lineTo(-8, -26);
+        ctx.lineTo(-10, 0);
+        // Right Wing
+        ctx.lineTo(-8, 26);
+        ctx.lineTo(-2, 26);
+        ctx.lineTo(2, 0);
+        ctx.fill();
+
+        // Left Nav Light dot (Solid center)
+        if (!isShadow) {
+            ctx.fillStyle = '#FF0000';
+            ctx.beginPath(); ctx.arc(-3, -25, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#00FF00';
+            ctx.beginPath(); ctx.arc(-3, 25, 2, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // Tail plane 
+        ctx.fillStyle = wingColor;
+        ctx.beginPath();
+        ctx.moveTo(-14, 0);
+        ctx.lineTo(-16, -10);
+        ctx.lineTo(-20, -10);
+        ctx.lineTo(-19, 0);
+        ctx.lineTo(-20, 10);
+        ctx.lineTo(-16, 10);
+        ctx.closePath();
+        ctx.fill();
+
+        // 2. Fuselage (Tapered shape with Gradient)
+        if (!isShadow) {
+            // Create gradient to simulate roundness
+            const grad = ctx.createLinearGradient(0, -7, 0, 7);
+            grad.addColorStop(0, '#DDDDDD'); // Highlight top
+            grad.addColorStop(0.5, this.bodyColor); // Base color middle
+            grad.addColorStop(1, '#BBBBBB'); // Shadow bottom
+            ctx.fillStyle = grad;
+        } else {
+            ctx.fillStyle = color;
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(15, 0);
+        ctx.bezierCurveTo(15, 7, -10, 7, -20, 2);
+        ctx.lineTo(-20, -2);
+        ctx.bezierCurveTo(-10, -7, 15, -7, 15, 0);
+        ctx.fill();
+
+        // 3. Cockpit / Details
+        if (!isShadow) {
+            // Window with "glass" feel
             ctx.fillStyle = '#87CEEB';
             ctx.beginPath();
-            ctx.ellipse(-5, 0, 4, 3, 0, 0, Math.PI * 2);
+            ctx.ellipse(2, 0, 3, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Glare on window
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.beginPath();
+            ctx.ellipse(3, -1, 1, 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Stripe detail (Red stripe?)
+            ctx.fillStyle = '#FF5A5F'; // Match car red for branding
+            ctx.beginPath();
+            ctx.moveTo(-5, -6);
+            ctx.lineTo(-2, -6);
+            ctx.lineTo(-2, 6);
+            ctx.lineTo(-5, 6);
             ctx.fill();
         }
 
-        // Propeller
+        // 4. Propeller
         if (!isShadow) {
             ctx.save();
-            ctx.translate(15, 0); // Nose of plane
+            ctx.translate(15, 0);
             ctx.rotate(this.propAngle);
-            ctx.fillStyle = '#555555';
-            ctx.fillRect(-2, -18, 4, 36); // Blade
-            ctx.fillStyle = '#CCCCCC'; // Center blur
-            ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
+
+            // Blur effect for propeller when spinning
+            if (Math.abs(this.speed) > 2) {
+                ctx.fillStyle = 'rgba(50, 50, 50, 0.2)';
+                ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill();
+            }
+
+            ctx.fillStyle = '#333333';
+            ctx.fillRect(-2, -22, 4, 44);
+
+            ctx.fillStyle = '#AAAAAA';
+            ctx.beginPath();
+            ctx.arc(0, 0, 3, 0, Math.PI * 2);
+            ctx.fill();
+
             ctx.restore();
         }
 
