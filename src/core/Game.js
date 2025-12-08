@@ -107,51 +107,78 @@ class Game {
                 this.particles.createCollisionSparks(result.x, result.y, result.angle || 0);
             }
 
-            // Smoke & Tire Tracks (Using Car Properties)
-            const moveDiff = Math.abs(Math.sin(activeCar.angle - activeCar.moveAngle));
-            const isDriftingActive = moveDiff > activeCar.driftThreshold;
+            // Smoke & Tire Tracks
+            const isPlane = activeCar.constructor.name === 'Plane'; // Or check property
 
-            if (isDriftingActive) {
-                activeCar.driftDuration++;
-
-                if (Math.random() < 0.3) {
+            if (isPlane) {
+                // Contrails (Always when fast enough? Or just visual effect)
+                if (activeCar.speed > 3) {
                     const cos = Math.cos(activeCar.angle);
                     const sin = Math.sin(activeCar.angle);
-                    const offsets = [{ x: -14, y: -14 }, { x: -14, y: 14 }];
+                    // Wingtips
+                    const wingOffsets = [{ x: -5, y: -20 }, { x: -5, y: 20 }];
 
-                    offsets.forEach(offset => {
-                        const tireX = activeCar.x + (offset.x * cos - offset.y * sin);
-                        const tireY = activeCar.y + (offset.x * sin + offset.y * cos);
+                    wingOffsets.forEach(off => {
+                        const wx = activeCar.x + (off.x * cos - off.y * sin);
+                        const wy = activeCar.y + (off.x * sin + off.y * cos);
 
-                        let isSpark = activeCar.driftDuration > 30 && Math.random() < 0.6;
-                        if (activeCar.driftColor) isSpark = true; // Custom drift effect prefers 'spark' particle type behavior but with custom color
-
-                        if (isSpark) {
-                            const color = activeCar.driftColor || ['#FFD700', '#FFA500', '#FF4500'][Math.floor(Math.random() * 3)];
-                            this.particles.emit(tireX, tireY, 'spark', {
-                                vx: -Math.cos(activeCar.moveAngle) * 4 + (Math.random() - 0.5) * 3,
-                                vy: -Math.sin(activeCar.moveAngle) * 4 + (Math.random() - 0.5) * 3,
-                                maxLife: 5 + Math.random() * 8,
-                                size: 1 + Math.random(),
-                                color: color
-                            });
-                        } else {
-                            const color = activeCar.smokeColor || null;
-                            this.particles.emit(tireX, tireY, 'smoke', {
-                                vx: -Math.cos(activeCar.moveAngle) * 1.5 + (Math.random() - 0.5),
-                                vy: -Math.sin(activeCar.moveAngle) * 1.5 + (Math.random() - 0.5),
-                                maxLife: 20 + Math.random() * 10,
-                                size: 3 + Math.random() * 4,
-                                color: color
-                            });
-                        }
+                        this.particles.emit(wx, wy, 'smoke', {
+                            vx: -Math.cos(activeCar.moveAngle) * 0.5,
+                            vy: -Math.sin(activeCar.moveAngle) * 0.5,
+                            maxLife: 40,
+                            size: 2,
+                            color: 'rgba(255, 255, 255, 0.4)'
+                        });
                     });
                 }
             } else {
-                activeCar.driftDuration = 0;
-            }
+                // Car Logic (Drift Smoke)
+                const moveDiff = Math.abs(Math.sin(activeCar.angle - activeCar.moveAngle));
+                const isDriftingActive = moveDiff > activeCar.driftThreshold;
 
-            this.tracks.addTrack(activeCar, isDriftingActive);
+                if (isDriftingActive) {
+                    activeCar.driftDuration++;
+
+                    if (Math.random() < 0.3) {
+                        const cos = Math.cos(activeCar.angle);
+                        const sin = Math.sin(activeCar.angle);
+                        const offsets = [{ x: -14, y: -14 }, { x: -14, y: 14 }];
+
+                        offsets.forEach(offset => {
+                            const tireX = activeCar.x + (offset.x * cos - offset.y * sin);
+                            const tireY = activeCar.y + (offset.x * sin + offset.y * cos);
+
+                            let isSpark = activeCar.driftDuration > 30 && Math.random() < 0.6;
+                            if (activeCar.driftColor) isSpark = true;
+
+                            if (isSpark) {
+                                const color = activeCar.driftColor || ['#FFD700', '#FFA500', '#FF4500'][Math.floor(Math.random() * 3)];
+                                this.particles.emit(tireX, tireY, 'spark', {
+                                    vx: -Math.cos(activeCar.moveAngle) * 4 + (Math.random() - 0.5) * 3,
+                                    vy: -Math.sin(activeCar.moveAngle) * 4 + (Math.random() - 0.5) * 3,
+                                    maxLife: 5 + Math.random() * 8,
+                                    size: 1 + Math.random(),
+                                    color: color
+                                });
+                            } else {
+                                const color = activeCar.smokeColor || null;
+                                this.particles.emit(tireX, tireY, 'smoke', {
+                                    vx: -Math.cos(activeCar.moveAngle) * 1.5 + (Math.random() - 0.5),
+                                    vy: -Math.sin(activeCar.moveAngle) * 1.5 + (Math.random() - 0.5),
+                                    maxLife: 20 + Math.random() * 10,
+                                    size: 3 + Math.random() * 4,
+                                    color: color
+                                });
+                            }
+                        });
+                    }
+                } else {
+                    activeCar.driftDuration = 0;
+                }
+
+                // Only cars leave tire tracks
+                this.tracks.addTrack(activeCar, isDriftingActive);
+            }
         } else {
             this.tracks.lastCarOut = null;
         }

@@ -1,4 +1,5 @@
 const Car = require('../entities/Car');
+const Plane = require('../entities/Plane');
 
 class Garage {
     constructor() {
@@ -24,31 +25,15 @@ class Garage {
             maxSpeed: 6
         });
 
-        // 2. Drift King (Slippery, Purple Smoke)
-        const car2 = new Car(100, 200, {
-            bodyColor: '#9B59B6', // Purple
-            maxSpeed: 7,
-            acceleration: 0.4,
-            friction: 0.98, // Very slippery
-            rotationSpeed: 0.07,
-            driftThreshold: 0.1, // Drifts easily
-            smokeColor: '#8E44AD',
-            driftColor: '#E056FD'
+        // 2. The Plane (White)
+        const plane = new Plane(100, 200, {
+            bodyColor: '#FFFFFF',
+            wingColor: '#DDDDDD',
+            maxSpeed: 10
         });
 
-        // 3. The Tank (Slow, Heavy, Wide Tires)
-        const car3 = new Car(100, 300, {
-            bodyColor: '#2C3E50', // Dark Blue/Grey
-            maxSpeed: 4,
-            acceleration: 0.2,
-            friction: 0.9, // Stops fast
-            rotationSpeed: 0.03,
-            tireWidth: 12,
-            wheelColor: '#000000'
-        });
-
-        // 4. Neon Speedster (Fast, Sticky)
-        const car4 = new Car(100, 400, {
+        // 3. Neon Speedster (Green)
+        const car4 = new Car(100, 300, {
             bodyColor: '#2ECC71', // Neon Green
             maxSpeed: 9,
             acceleration: 0.6,
@@ -58,7 +43,9 @@ class Garage {
             driftColor: '#00FF00' // Neon trails
         });
 
-        this.vehicles = [car1, car2, car3, car4];
+        // (Removed Tank and Drift King as requested)
+
+        this.vehicles = [car1, plane, car4];
 
         // Assign cars to spots initially
         this.vehicles.forEach((v, i) => {
@@ -72,7 +59,7 @@ class Garage {
 
         // Start with first car active
         this.currentIndex = 0;
-        this.parkingSpots[0].occupiedBy = null; // Spot 0 is now empty (active car left it)
+        this.parkingSpots[0].occupiedBy = null; // Spot 0 is now empty
     }
 
     getCurrentVehicle() {
@@ -94,14 +81,16 @@ class Garage {
             const dy = activeCar.y - spot.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (dist < 60) { // Increased from 30
+            // Increased radius (approx 80px visual box, check < 80)
+            if (dist < 80) {
                 // We are at a spot.
                 if (spot.occupiedBy !== null) {
                     // Return candidate for UI
                     const canSwitch = Math.abs(activeCar.speed) < 2.0;
                     const gPressed = input.keys['g'] || input.keys['G'];
+
                     if (canSwitch && gPressed && !input.gKeyLocked) {
-                        this.switchVehicle(spot.occupiedBy);
+                        this.switchVehicle(spot.occupiedBy, spot); // Pass spot for snapping
                         input.gKeyLocked = true;
                         setTimeout(() => input.gKeyLocked = false, 500);
                         return { switched: true };
@@ -113,46 +102,34 @@ class Garage {
         return null;
     }
 
-    switchVehicle(targetIndex) {
+    switchVehicle(targetIndex, spot) {
         if (targetIndex === this.currentIndex) return;
 
-        // Current car "parks" in the spot of the target car? 
-        // No, that teleports. 
-        // Cars should have persistent locations.
-        // We are at the location of the target car (within 30px).
-        // So we swap control.
-
         const prevIndex = this.currentIndex;
+        const oldVehicle = this.vehicles[prevIndex];
+
+        // Swap control
         this.currentIndex = targetIndex;
 
-        // The car we just left is now "parked" at its current location
-        // Which should be near the spot we just drove to.
-        // We need to update the logic of spots? 
-        // Actually, the "spots" are just designated coordinates.
-        // If I drive Car A to Car B's spot, and switch...
-        // Car A is now at Car B's spot. Car B becomes active.
+        // LOGIC REFINEMENT:
+        // The vehicle we just left (oldVehicle) should be parked in the spot we just took.
+        // We know 'spot' is where the new vehicle was.
+        // So snap oldVehicle to spot.x, spot.y for tidy parking.
 
-        // Let's simplify: 
-        // The spot we drove to (where targetIndex car is) became OUR location.
-        // So we just take control of targetIndex car.
-        // Car A is left there. 
+        oldVehicle.x = spot.x;
+        oldVehicle.y = spot.y;
+        oldVehicle.angle = 0; // Ensure parked straight
+        oldVehicle.speed = 0;
+        oldVehicle.moveAngle = 0;
 
-        // Update parking spot logic:
-        // Find which spot is closest to the Old Car (Car A) and mark it occupied by Old Car
-        // Mark the spot of New Car (Car B) as empty (since it's leaving).
-
-        // This assumes cars are always at spots. If we park efficiently.
-        // Let's just swap the "occupiedBy" pointer for the spot.
-
-        // Find spot occupied by targetIndex
-        const spotIndex = this.parkingSpots.findIndex(s => s.occupiedBy === targetIndex);
+        // Visual "Occupied" Swap
+        // Find which spot was occupied by targetIndex (should be 'spot')
+        const spotIndex = this.parkingSpots.indexOf(spot);
         if (spotIndex !== -1) {
             this.parkingSpots[spotIndex].occupiedBy = prevIndex; // Swap! previous car is now in this spot
         }
-
-        // Visual feedback? 
-        // The cars are physically there. We just change camera focus / control.
     }
+
     getAllVehicles() {
         return this.vehicles;
     }
