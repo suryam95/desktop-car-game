@@ -51,7 +51,7 @@ function createTray() {
   // If no icon is found, it might throw or show empty. 
   // Let's assume we'll create a simple 16x16 png or just proceed.
 
-  tray = new Tray(path.join(__dirname, 'assets', 'icon.png')); // We will create this asset
+  tray = new Tray(path.join(__dirname, 'assets', 'iconTemplate.png'));
 
   updateTrayMenu();
 }
