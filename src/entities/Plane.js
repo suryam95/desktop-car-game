@@ -4,14 +4,14 @@ class Plane extends Vehicle {
     constructor(x, y, options = {}) {
         super(x, y, options);
         // Plane defaults
-        this.maxSpeed = options.maxSpeed || 12; // Fast
-        this.acceleration = 0.2; // Slow takeoff
-        this.friction = 0.99; // Very glidey (low friction)
-        this.rotationSpeed = 0.04; // Wide turns
+        this.maxSpeed = options.maxSpeed || 14; // Fast top speed
+        this.acceleration = 0.1; // Slow, heavy takeoff
+        this.friction = 0.995; // Extremely glidey
+        this.rotationSpeed = 0.03; // Wide, banking turns
 
         // Dimensions
         this.length = 50;
-        this.width = 40; // Wingspan
+        this.width = 40;
         this.hbSz = 30;
 
         // Visuals
@@ -19,10 +19,8 @@ class Plane extends Vehicle {
         this.wingColor = options.wingColor || '#E0E0E0';
         this.propAngle = 0;
 
-        // Flight state
-        // We simulate "height" with shadow offset.
-        // When moving fast, shadow moves further away? 
-        // Or constant "flying" height. Constant is simpler and effective.
+        // Flight simulation
+        this.takeoffProgress = 0; // 0 (ground) to 1 (flight)
     }
 
     update(input, obstacles) {
@@ -32,9 +30,13 @@ class Plane extends Vehicle {
         if (keys['ArrowUp'] || keys['w']) this.speed += this.acceleration;
         if (keys['ArrowDown'] || keys['s']) this.speed -= this.acceleration;
 
+        // Calculate Takeoff Progress (Lift)
+        // Full lift at speed > 8
+        this.takeoffProgress = Math.min(Math.max(Math.abs(this.speed) - 2, 0) / 6, 1);
+
         // Steering
-        // Planes turn better at speed (banking)
-        if (Math.abs(this.speed) > 2) {
+        // Banking turns require speed
+        if (Math.abs(this.speed) > 1) {
             let turnDir = 0;
             if (keys['ArrowLeft'] || keys['a']) turnDir = -1;
             if (keys['ArrowRight'] || keys['d']) turnDir = 1;
@@ -42,17 +44,13 @@ class Plane extends Vehicle {
             this.angle += turnDir * this.rotationSpeed;
         }
 
-        // Plane Physics: "Drift" is actually just momentum/air resistance
-        // Planes don't snap to rails like cars can. They slide through air.
-        // High "drift" factor always.
-
-        // Align moveAngle slowly to facing angle (air resistance straightening flight path)
+        // Aerodynamics: Align moveAngle to facing angle slowly
         const diff = this.angle - this.moveAngle;
         let d = diff % (2 * Math.PI);
         if (d < -Math.PI) d += 2 * Math.PI;
         if (d > Math.PI) d -= 2 * Math.PI;
 
-        this.moveAngle += d * 0.03; // Very slow realignment = "slidey" turns
+        this.moveAngle += d * 0.02; // Very slow drift/realignment
 
         this.speed *= this.friction;
 
@@ -62,29 +60,33 @@ class Plane extends Vehicle {
 
         this.x += vx;
 
-        // Planes fly OVER obstacles? 
-        // User said: "small propellor plane. same style as the rest... treat windows as barriers"
-        // So planes ALSO hit windows.
         if (this.checkCollision(obstacles, this.hbSz)) {
             this.x -= vx;
+            // Wall slide / Bounce
+            this.moveAngle = Math.PI - this.moveAngle; // Simple reflection approximation for bounce
+            this.speed *= 0.5; // Lose energy on hit
             if (Math.abs(this.speed) > 2) return { collided: true, x: this.x + (vx > 0 ? 15 : -15), y: this.y };
         }
 
         this.y += vy;
         if (this.checkCollision(obstacles, this.hbSz)) {
             this.y -= vy;
+            // Wall slide / Bounce
+            this.moveAngle = -this.moveAngle;
+            this.speed *= 0.5;
             if (Math.abs(this.speed) > 2) return { collided: true, x: this.x, y: this.y + (vy > 0 ? 15 : -15) };
         }
 
         // Prop animation
         if (Math.abs(this.speed) > 0.1) {
-            this.propAngle += 0.5 + Math.abs(this.speed) * 0.1;
+            this.propAngle += 0.5 + Math.abs(this.speed) * 0.15;
         }
 
         return { collided: false };
     }
 
     checkCollision(obstacles, size) {
+        // Reduced hitbox when flying high? Maybe not, keep gameplay simple.
         for (let obs of obstacles) {
             if (this.x + size / 2 > obs.x && this.x - size / 2 < obs.x + obs.w &&
                 this.y + size / 2 > obs.y && this.y - size / 2 < obs.y + obs.h) {
@@ -99,11 +101,25 @@ class Plane extends Vehicle {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
 
-        // Shadow (Offset to create depth)
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-        this.drawPlaneBody(ctx, 15, 15, true); // Offset x, y, isShadow
+        // Visual Lift: Scale up slightly when fast
+        const scale = 1.0 + (this.takeoffProgress * 0.15);
+        ctx.scale(scale, scale);
 
-        // Plane Body
+        // Shadow Logic: separate scale, offset increases with speed
+        // We revert scale for shadow to keep it "grounded" relative to plane? 
+        // Or keep it scaled? Actually shadow should get smaller/blurrier as you go up?
+        // Let's keep it simple: Shadow moves away.
+        const shadowDist = 15 + (this.takeoffProgress * 15);
+
+        // Draw Shadow
+        ctx.save();
+        ctx.translate(shadowDist, shadowDist);
+        // Shadow slightly smaller/blurrier at height?
+        // ctx.scale(0.9, 0.9); 
+        this.drawPlaneBody(ctx, 0, 0, true);
+        ctx.restore();
+
+        // Draw Object
         this.drawPlaneBody(ctx, 0, 0, false);
 
         ctx.restore();
